@@ -1,0 +1,129 @@
+# aws cloudformation create-stack \
+#  --stack-name vgs-byok \
+#  --template-body file://./iac/byok/001-create-customer-key.yaml \
+#  --parameters ParameterKey=CustomerOrganizationId,ParameterValue=org-asd123 ParameterKey=CustomerVaultId,ParameterValue=tntasd123 --capabilities CAPABILITY_NAMED_IAM
+# aws cloudformation describe-stack-events --stack-name=vgs-byok
+# aws cloudformation describe-stacks --stack-name=vgs-bootstrap | jq '.Stacks[].Outputs[]'
+# aws cloudformation delete-stack --stack-name=vgs-byok
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Allows VGS to read and write to and from a customer' AWS accoount via S3 buckets
+Parameters:
+  CustomerOrganizationId:
+    Type: String
+    Description: The organization ID of the VGS customer.
+  CustomerVaultId:
+    Type: String
+    Description: The Vault ID of the VGS customer. Looks like tntasd123
+  VgsAwsAccountId:
+    Type: String
+    Description: AWS Account Id for VGS.
+    Default: 883127560329
+Resources:
+  VgsSigningKey:
+    # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kms-key.html
+    Type: AWS::KMS::Key
+    Properties:
+      BypassPolicyLockoutSafetyCheck: False
+      Description: A KMS key used by VGS to perform cryptographic operations
+      Enabled: True
+      EnableKeyRotation: False # You cannot set the EnableKeyRotation property to true on asymmetric or external keys.
+      KeyPolicy:
+        Version: 2012-10-17
+        Id: VgsKeyUsage
+        Statement:
+          - Sid: Enable Self Administration of the Key
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+            Action: 'kms:*'
+            Resource: '*'
+          - Sid: Allow VGS to use the key
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${VgsAwsAccountId}:root'
+            Action:
+              - 'kms:DescribeKey'
+              - 'kms:Encrypt'
+              - 'kms:Decrypt'
+              - 'kms:ReEncrypt*'
+              - 'kms:GenerateDataKey'
+              - 'kms:GenerateDataKeyWithoutPlaintext'
+              - 'kms:Sign'
+              - 'kms:Verify'
+            Resource: '*'
+      KeySpec: RSA_4096
+      KeyUsage: SIGN_VERIFY
+      MultiRegion: True
+      Origin: AWS_KMS
+      PendingWindowInDays: 30
+      Tags:
+      # https://verygoodsecurity.atlassian.net/wiki/spaces/INFRA/pages/1359610177/Tagging+Labeling+Guidelines+Practical+Guide
+      - Key: vgs.io/organizationId
+        Value: !Ref CustomerOrganizationId
+      - Key: vgs.io/vaultId
+        Value: !Ref CustomerVaultId
+      - Key: vgs.io/product
+        Value: vault
+
+  VgsKmsRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action:
+              - 'sts:AssumeRole'
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${VgsAwsAccountId}:root'
+            Condition:
+              StringEquals:
+                sts:ExternalId: !Ref CustomerVaultId
+      Policies:
+      - PolicyName: AllowKeyUsage
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+              - 'kms:DescribeKey'
+              - 'kms:Encrypt'
+              - 'kms:Decrypt'
+              - 'kms:ReEncrypt*'
+              - 'kms:GenerateDataKey'
+              - 'kms:GenerateDataKeyWithoutPlaintext'
+              - 'kms:Sign'
+              - 'kms:Verify'
+            Resource: !GetAtt
+              - VgsSigningKey
+              - Arn
+      Tags:
+      # https://verygoodsecurity.atlassian.net/wiki/spaces/INFRA/pages/1359610177/Tagging+Labeling+Guidelines+Practical+Guide
+      - Key: vgs.io/organizationId
+        Value: !Ref CustomerOrganizationId
+      - Key: vgs.io/vaultId
+        Value: !Ref CustomerVaultId
+      - Key: vgs.io/product
+        Value: vault
+
+Outputs:
+  CustomerAwsAccountId:
+    Value: !Ref AWS::AccountId
+  CustomerAwsRegion:
+    Value: !Ref AWS::Region
+  CustomerOrganizationId:
+    Value: !Ref CustomerOrganizationId
+  CustomerVaultId:
+    Value: !Ref CustomerVaultId
+  VgsSigningKey:
+    Value: !GetAtt
+              - VgsSigningKey
+              - Arn
+    Description: VGS KMS ARN
+  VgsKmsRole:
+    Value: !GetAtt
+              - VgsKmsRole
+              - Arn
+    Description: VGS IAM ARN
+  VgsAwsAccountId:
+    Value: !Ref VgsAwsAccountId
+    Description: VGS AWS Account ID

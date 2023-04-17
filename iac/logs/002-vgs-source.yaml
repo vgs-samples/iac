@@ -1,0 +1,103 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: |
+  Creates an S3 bucket in VGS's AWS account for sending logs to a VGS customer.
+
+  The file is run in the VGS account.
+
+Parameters:
+
+  CustomerVgsOrganizationId:
+    Type: String
+    Description: Customer's VGS Organization Id. Looks like ACibjsF8JziGd26QGyXy6XzM.
+
+  CustomerAwsAccountId:
+    Type: String
+    Description: Destination bucket owner account ID.
+
+  Version:
+    Type: String
+    Description: Discriminator in case multiple instances are provisioned.
+    Default: '01'
+
+  Prefix:
+    Type: String
+    Description: Prefix of files to replicate.
+    Default: ''
+
+Resources:
+
+  VgsReplicationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: s3.amazonaws.com
+          Action: sts:AssumeRole
+      Path: /
+      Policies:
+      - PolicyName: replication-from-vgs
+        PolicyDocument:
+          Statement:
+          - Effect: Allow
+            Action:
+              - 's3:ListBucket'
+              - 's3:GetReplicationConfiguration'
+              - 's3:GetObjectVersionForReplication'
+              - 's3:GetObjectVersionAcl'
+              - 's3:GetObjectVersionTagging'
+            Resource: ## source bucket
+              - !Sub 'arn:aws:s3:::vgs-logs-to-customer-${CustomerVgsOrganizationId}-${Version}'
+              - !Sub 'arn:aws:s3:::vgs-logs-to-customer-${CustomerVgsOrganizationId}-${Version}/*'
+          - Effect: Allow
+            Action:
+              - 's3:List*'
+              - 's3:ReplicateObject'
+              - 's3:ReplicateDelete'
+              - 's3:ReplicateTags'
+              - 's3:GetObjectVersionTagging'
+              - 's3:GetBucketVersioning'
+              - 's3:PutBucketVersioning'
+              - 's3:ObjectOwnerOverrideToBucketOwner'
+            Resource: ## destination bucket
+              - !Sub 'arn:aws:s3:::customer-logs-from-vgs-${CustomerVgsOrganizationId}-${Version}'
+              - !Sub 'arn:aws:s3:::customer-logs-from-vgs-${CustomerVgsOrganizationId}-${Version}/*'
+      Tags:
+      - Key: vgs:tenant
+        Value: !Ref CustomerVgsOrganizationId
+      - Key: vgs:product
+        Value: mft
+
+  VgsSourceBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'vgs-logs-to-customer-${CustomerVgsOrganizationId}-${Version}'
+      VersioningConfiguration:
+        Status: Enabled
+      ReplicationConfiguration:
+        Role: !GetAtt VgsReplicationRole.Arn
+        Rules: ## Destination bucket must exist, have versioning enabled and be in a different region than source bucket.
+          - Destination:
+              Bucket: !Sub 'arn:aws:s3:::customer-logs-from-vgs-${CustomerVgsOrganizationId}-${Version}'
+              AccessControlTranslation: ## Account is required for AccessControlTranslation
+                Owner: Destination
+              Account: !Ref CustomerAwsAccountId
+            Id: replication-from-vgs
+            Prefix: !Ref Prefix
+            Status: Enabled
+      Tags:
+      - Key: vgs:tenant
+        Value: !Ref CustomerVgsOrganizationId
+      - Key: vgs:product
+        Value: observability
+
+Outputs:
+  VgsAwsAccountId:
+    Value: !Ref AWS::AccountId
+  CustomerAwsAccountId:
+    Value: !Ref CustomerAwsAccountId
+  VgsSourceBucket:
+    Value: !Ref VgsSourceBucket
+    Description: VGS S3 Bucket which supplies logs to customer

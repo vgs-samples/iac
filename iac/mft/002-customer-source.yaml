@@ -1,0 +1,101 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: |
+  Creates an S3 bucket in a VGS customer's account for sending files and data to VGS.
+
+  This file should be run in the customer's AWS account.
+
+Parameters:
+
+  CustomerVgsVaultId:
+    Type: String
+    Description: Customer's VGS Vault Id
+
+  VgsAwsAccountId:
+    Type: String
+    Description: Destination bucket owner account ID.
+    Default: '526682027428'
+
+  Version:
+    Type: String
+    Description: Discriminator in case multiple instances are provisioned
+    Default: '01'
+
+  Prefix:
+    Type: String
+    Description: Prefix of files to replicate
+    Default: ''
+
+Resources:
+
+  VgsReplicationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: s3.amazonaws.com
+          Action: sts:AssumeRole
+      Path: /
+      Policies:
+      - PolicyName: replication-to-vgs
+        PolicyDocument:
+          Statement:
+          - Effect: Allow
+            Action:
+              - 's3:ListBucket'
+              - 's3:GetReplicationConfiguration'
+              - 's3:GetObjectVersionForReplication'
+              - 's3:GetObjectVersionAcl'
+            Resource: ## source bucket
+              - !Sub 'arn:aws:s3:::customer-files-to-vgs-${CustomerVgsVaultId}-${Version}'
+              - !Sub 'arn:aws:s3:::customer-files-to-vgs-${CustomerVgsVaultId}-${Version}/*'
+          - Effect: Allow
+            Action:
+              - 's3:ReplicateObject'
+              - 's3:ReplicateDelete'
+              - 's3:ReplicateTags'
+              - 's3:GetObjectVersionTagging'
+              - 's3:GetBucketVersioning'
+              - 's3:PutBucketVersioning'
+              - 's3:ObjectOwnerOverrideToBucketOwner'
+            Resource: ## destination bucket
+              - !Sub 'arn:aws:s3:::vgs-files-from-customer-${CustomerVgsVaultId}-${Version}'
+              - !Sub 'arn:aws:s3:::vgs-files-from-customer-${CustomerVgsVaultId}-${Version}/*'
+      Tags:
+      - Key: vgs.io/vaultId
+        Value: !Ref CustomerVgsVaultId
+
+  VgsSourceBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'customer-files-to-vgs-${CustomerVgsVaultId}-${Version}'
+      VersioningConfiguration:
+        Status: Enabled
+      ReplicationConfiguration:
+        Role: !GetAtt VgsReplicationRole.Arn
+        Rules: ## Destination bucket must exist, have versioning enabled and be in a different region than source bucket.
+          - Destination:
+              Bucket: !Sub 'arn:aws:s3:::vgs-files-from-customer-${CustomerVgsVaultId}-${Version}'
+              # TODO: uncomment when going across account
+              # AccessControlTranslation: ## Account is required for AccessControlTranslation
+              #   Owner: Destination
+              Account: !Ref VgsAwsAccountId
+            Id: replication-to-vgs
+            Prefix: !Ref Prefix
+            Status: Enabled
+      Tags:
+      - Key: vgs.io/vaultId
+        Value: !Ref CustomerVgsVaultId
+
+Outputs:
+  CustomerAwsAccountId:
+    Value: !Ref AWS::AccountId
+  VgsAwsAccountId:
+    Value: !Ref VgsAwsAccountId
+  CustomerAwsRegion:
+    Value: !Ref AWS::Region
+  CustomerS3Bucket:
+    Value: !Ref VgsSourceBucket
+    Description: Customers S3 Bucket to supply files to VGS

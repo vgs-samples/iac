@@ -1,0 +1,67 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: |
+  Allows VGS to replicate logs from the VGS account to a customer via S3 replication.
+
+  This file is run in the customer's AWS account that should receive the files.
+
+Parameters:
+
+  CustomerVgsOrganizationId:
+    Type: String
+    Description: Customer's VGS Organization Id. Looks like ACibjsF8JziGd26QGyXy6XzM.
+
+  VgsAwsAccountId:
+    Type: String
+    Description: Destination bucket owner account ID.
+    Default: '582054058224'
+
+  Version:
+    Type: String
+    Description: Discriminator in case multiple instances are provisioned.
+    Default: '01'
+
+Resources:
+
+  InternalSourceS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'customer-logs-from-vgs-${CustomerVgsOrganizationId}-${Version}'
+      VersioningConfiguration:
+        Status: Enabled
+      Tags:
+      - Key: vgs.io/organizationId
+        Value: !Ref CustomerVgsOrganizationId
+
+  BucketReplicationPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Sub 'customer-logs-from-vgs-${CustomerVgsOrganizationId}-${Version}'
+      PolicyDocument:
+        Statement:
+        - Sid: Replication policy
+          Effect: Allow
+          Principal:
+            AWS: !Join ['',['arn:aws:iam::', !Ref VgsAwsAccountId, ':root']]
+          Action:
+            - 's3:List*'
+            - 's3:ReplicateObject'
+            - 's3:ReplicateDelete'
+            - 's3:ReplicateTags'
+            - 's3:GetObjectVersionTagging'
+            - 's3:GetBucketVersioning'
+            - 's3:PutBucketVersioning'
+            - 's3:ObjectOwnerOverrideToBucketOwner'
+          Resource: ## destination bucket
+            - !Sub 'arn:aws:s3:::customer-logs-from-vgs-${CustomerVgsOrganizationId}-${Version}'
+            - !Sub 'arn:aws:s3:::customer-logs-from-vgs-${CustomerVgsOrganizationId}-${Version}/*'
+
+Outputs:
+  CustomerVgsOrganizationId:
+    Value: !Ref CustomerVgsOrganizationId
+  VgsAwsAccountId:
+    Value: !Ref VgsAwsAccountId
+  CustomerAwsRegion:
+    Value: !Ref AWS::Region
+  CustomerS3Bucket:
+    Value: !Ref InternalSourceS3Bucket
+    Description: VGS S3 bucket that will receive replicated files
