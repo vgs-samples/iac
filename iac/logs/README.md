@@ -1,5 +1,8 @@
 # Logs AWS S3 Bucket Replication Setup
 
+[![Launch Stack](https://cdn.rawgit.com/buildkite/cloudformation-launch-stack-button-svg/master/launch-stack.svg)](https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=vgs-audit-logs&templateURL=https://raw.githubusercontent.com/vgs-samples/iac/main/iac/logs/001-customer-receiver.yaml?token=GHSAT0AAAAAABQY5DSGF7KLFEUBINODHY5WZRQGJVQ)
+
+
 Allows creating S3 buckets via Cloudformation for transferring logs (audit and access logs) from VGS to a customer's S3 bucket using S3 replication.
 
 This has the benefit of pushing replication to AWS and avoiding having to configure replication via SFTP or other approaches.
