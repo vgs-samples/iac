@@ -24,7 +24,7 @@ Resources:
   InternalSourceS3Bucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub 'vgs-files-from-customer-${CustomerVgsVaultId}-${Version}'
+      BucketName: !Sub 'vgs-files-from-customer-for-${CustomerVgsVaultId}-${Version}'
       VersioningConfiguration:
         Status: Enabled
       Tags:
@@ -37,7 +37,7 @@ Resources:
   BucketReplicationPolicy:
     Type: AWS::S3::BucketPolicy
     Properties:
-      Bucket: !Sub 'vgs-files-from-customer-${CustomerVgsVaultId}-${Version}'
+      Bucket: !Sub 'vgs-files-from-customer-for-${CustomerVgsVaultId}-${Version}'
       PolicyDocument:
         Statement:
         - Sid: Replication policy
@@ -53,8 +53,8 @@ Resources:
             - 's3:PutBucketVersioning'
             - 's3:ObjectOwnerOverrideToBucketOwner'
           Resource: ## destination bucket
-            - !Sub 'arn:aws:s3:::vgs-files-from-customer-${CustomerVgsVaultId}-${Version}'
-            - !Sub 'arn:aws:s3:::vgs-files-from-customer-${CustomerVgsVaultId}-${Version}/*'
+            - !Sub 'arn:aws:s3:::vgs-files-from-customer-for-${CustomerVgsVaultId}-${Version}'
+            - !Sub 'arn:aws:s3:::vgs-files-from-customer-for-${CustomerVgsVaultId}-${Version}/*'
 
 Outputs:
   CustomerVgsVaultId:

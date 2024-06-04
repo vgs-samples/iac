@@ -49,8 +49,8 @@ Resources:
               - 's3:GetObjectVersionForReplication'
               - 's3:GetObjectVersionAcl'
             Resource: ## source bucket
-              - !Sub 'arn:aws:s3:::customer-files-to-vgs-${CustomerVgsVaultId}-${Version}'
-              - !Sub 'arn:aws:s3:::customer-files-to-vgs-${CustomerVgsVaultId}-${Version}/*'
+              - !Sub 'arn:aws:s3:::customer-files-to-vgs-for-${CustomerVgsVaultId}-${Version}'
+              - !Sub 'arn:aws:s3:::customer-files-to-vgs-for-${CustomerVgsVaultId}-${Version}/*'
           - Effect: Allow
             Action:
               - 's3:ReplicateObject'
@@ -61,8 +61,8 @@ Resources:
               - 's3:PutBucketVersioning'
               - 's3:ObjectOwnerOverrideToBucketOwner'
             Resource: ## destination bucket
-              - !Sub 'arn:aws:s3:::vgs-files-from-customer-${CustomerVgsVaultId}-${Version}'
-              - !Sub 'arn:aws:s3:::vgs-files-from-customer-${CustomerVgsVaultId}-${Version}/*'
+              - !Sub 'arn:aws:s3:::vgs-files-from-customer-for-${CustomerVgsVaultId}-${Version}'
+              - !Sub 'arn:aws:s3:::vgs-files-from-customer-for-${CustomerVgsVaultId}-${Version}/*'
       Tags:
       - Key: vgs.io/vaultId
         Value: !Ref CustomerVgsVaultId
@@ -70,14 +70,14 @@ Resources:
   VgsSourceBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub 'customer-files-to-vgs-${CustomerVgsVaultId}-${Version}'
+      BucketName: !Sub 'customer-files-to-vgs-for-${CustomerVgsVaultId}-${Version}'
       VersioningConfiguration:
         Status: Enabled
       ReplicationConfiguration:
         Role: !GetAtt VgsReplicationRole.Arn
         Rules: ## Destination bucket must exist, have versioning enabled and be in a different region than source bucket.
           - Destination:
-              Bucket: !Sub 'arn:aws:s3:::vgs-files-from-customer-${CustomerVgsVaultId}-${Version}'
+              Bucket: !Sub 'arn:aws:s3:::vgs-files-from-customer-for-${CustomerVgsVaultId}-${Version}'
               # TODO: uncomment when going across account
               # AccessControlTranslation: ## Account is required for AccessControlTranslation
               #   Owner: Destination

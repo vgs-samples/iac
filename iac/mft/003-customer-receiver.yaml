@@ -12,7 +12,7 @@ Parameters:
 
   VgsAwsAccountId:
     Type: String
-    Description: Destination bucket owner account ID.
+    Description: AWS Account for VGS.
     Default: '526682027428'
 
   Version:
@@ -25,20 +25,51 @@ Resources:
   InternalSourceS3Bucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub 'customer-files-from-vgs-${CustomerVgsVaultId}'
+      BucketName: !Sub 'customer-files-from-vgs-for-${CustomerVgsVaultId}-${Version}'
       VersioningConfiguration:
         Status: Enabled
       Tags:
       - Key: vgs.io/vaultId
         Value: !Ref CustomerVgsVaultId
 
+  CustomerReplicationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            AWS: !Join ['',['arn:aws:iam::', !Ref VgsAwsAccountId, ':root']]
+          Action: sts:AssumeRole
+      Path: /
+      Policies:
+      - PolicyName: copy-to-customer
+        PolicyDocument:
+          Statement:
+          - Effect: Allow
+            Action:
+              - s3:AbortMultipartUpload
+              - s3:DeleteObject
+              - s3:Get*
+              - s3:List*
+              - s3:Put*
+            Resource: ## destination bucket
+              - !Sub 'arn:aws:s3:::customer-files-from-vgs-for-${CustomerVgsVaultId}-${Version}'
+              - !Sub 'arn:aws:s3:::customer-files-from-vgs-for-${CustomerVgsVaultId}-${Version}/*'
+      Tags:
+      - Key: vgs.io/vaultId
+        Value: !Ref CustomerVgsVaultId
+      - Key: vgs.io/service
+        Value: mft
+
   BucketReplicationPolicy:
     Type: AWS::S3::BucketPolicy
     Properties:
-      Bucket: !Sub 'vgs-files-to-customer-${CustomerVgsVaultId}-${Version}'
+      Bucket: !Sub 'customer-files-from-vgs-for-${CustomerVgsVaultId}-${Version}'
       PolicyDocument:
         Statement:
-        - Sid: Replication policy
+        - Sid: ReplicationPolicy
           Effect: Allow
           Principal:
             AWS: !Join ['',['arn:aws:iam::', !Ref VgsAwsAccountId, ':root']]
@@ -51,8 +82,19 @@ Resources:
             - 's3:PutBucketVersioning'
             - 's3:ObjectOwnerOverrideToBucketOwner'
           Resource: ## destination bucket
-            - !Sub 'arn:aws:s3:::vgs-files-to-customer-${CustomerVgsVaultId}-${Version}'
-            - !Sub 'arn:aws:s3:::vgs-files-to-customer-${CustomerVgsVaultId}-${Version}/*'
+            - !Sub 'arn:aws:s3:::customer-files-from-vgs-for-${CustomerVgsVaultId}-${Version}'
+            - !Sub 'arn:aws:s3:::customer-files-from-vgs-for-${CustomerVgsVaultId}-${Version}/*'
+        - Sid: DenyUnEncryptedObjectUploads
+          Effect: Deny
+          Principal: "*"
+          Action:
+            - s3:PutObject
+            - s3:ReplicateObject
+          Resource: ## destination bucket
+            - !Sub 'arn:aws:s3:::customer-files-from-vgs-for-${CustomerVgsVaultId}-${Version}/*'
+          Condition:
+            "Null":
+              s3:x-amz-server-side-encryption: true
 
 Outputs:
   CustomerVgsVaultId:
@@ -64,3 +106,6 @@ Outputs:
   CustomerS3Bucket:
     Value: !Ref InternalSourceS3Bucket
     Description: VGS S3 bucket that will receive replicated files
+  CustomerReplicationRole:
+    Value: !GetAtt CustomerReplicationRole.Arn
+    Description: Customer's IAM role

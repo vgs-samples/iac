@@ -92,7 +92,7 @@ Create an S3 bucket to receive files from VGS
 
 ```bash
 aws cloudformation create-stack \
- --stack-name customer-receiver-stack-$VAULT_ID \
+ --stack-name customer-files-from-vgs-for-$VAULT_ID \
  --template-body file://./iac/mft/003-customer-receiver.yaml \
  --parameters ParameterKey=CustomerVgsVaultId,ParameterValue=$VAULT_ID ParameterKey=VgsAwsAccountId,ParameterValue=$VGS_AWS_ACCOUNT_ID --capabilities CAPABILITY_NAMED_IAM
 ```
