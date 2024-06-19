@@ -1,6 +1,6 @@
 #/bin/bash
 
-export ORGANIZATION_ID=ACoKRUTV7ETUsqWjMJGEWJZb
+export ORGANIZATION_ID=$(echo ACoKRUTV7ETUsqWjMJGEWJZb | tr '[:upper:]' '[:lower:]')
 export AWS_PROFILE=dev/logs/sso
 export AWS_REGION=us-east-1
 export CUSTOMER_AWS_ACCOUNT_ID=767398127962
