@@ -8,7 +8,7 @@ Parameters:
 
   CustomerVgsOrganizationId:
     Type: String
-    Description: Customer's VGS Organization Id. Looks like ACibjsF8JziGd26QGyXy6XzM.
+    Description: Customer's VGS Organization Id. Looks like ACibjsF8JziGd26QGyXy6XzM. This must be lowercased in order to adhere to AWS S3 naming conventions.
 
   CustomerAwsAccountId:
     Type: String
